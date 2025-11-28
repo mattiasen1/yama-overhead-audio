@@ -2,6 +2,9 @@ package com.yama;
 
 import com.google.inject.Provides;
 import javax.inject.Inject;
+import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.audio.AudioPlayer;
+
 
 import net.runelite.api.NPC;
 import net.runelite.api.events.OverheadTextChanged;
@@ -10,6 +13,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 
+@Slf4j
 @PluginDescriptor(
         name = "Yama Overhead Audio",
         description = "Plays sounds when Yama says specific overhead lines",
@@ -23,7 +27,8 @@ public class YamaPlugin extends Plugin
     @Inject
     private YamaConfig config;
 
-    private final SoundPlayer soundPlayer = new SoundPlayer();
+    @Inject
+    private AudioPlayer audioPlayer;
 
     // Types of Yama events based on overhead text
     private enum YamaEvent
@@ -47,13 +52,13 @@ public class YamaPlugin extends Plugin
     @Override
     protected void startUp()
     {
-        System.out.println("Yama Overhead Audio plugin started");
+        log.info("Yama Overhead Audio plugin started");
     }
 
     @Override
     protected void shutDown()
     {
-        System.out.println("Yama Overhead Audio plugin stopped");
+        log.info("Yama Overhead Audio plugin stopped");
     }
 
     @Subscribe
@@ -77,7 +82,7 @@ public class YamaPlugin extends Plugin
             return;
         }
 
-        System.out.println("Yama said: " + text);
+        log.debug("Yama said: {}", text);
 
         YamaEvent eventType = classifyDialogue(text);
         if (eventType == null)
@@ -85,43 +90,81 @@ public class YamaPlugin extends Plugin
             return;
         }
 
-        double volume = getVolume();
-
         switch (eventType)
         {
             case CHANGING_AGGRO:
-                soundPlayer.playSound("/yama_changing_aggro.wav", volume);
+                playSound("yama_changing_aggro.wav");
                 break;
 
             case INFERNAL_ROCKFALL:
-                soundPlayer.playSound("/yama_infernal_rockfall.wav", volume);
+                playSound("yama_infernal_rockfall.wav");
                 break;
 
             case SHADOW_STOMP:
-                soundPlayer.playSound("/yama_shadow_stomp.wav", volume);
+                playSound("yama_shadow_stomp.wav");
                 break;
 
             case PHASE_TRANSITION:
-                soundPlayer.playSound("/yama_phase_transition.wav", volume);
+                playSound("yama_phase_transition.wav");
                 break;
 
             case PLAYER_DIES:
-                soundPlayer.playSound("/yama_player_dies.wav", volume);
+                playSound("yama_player_dies.wav");
                 break;
 
             case DEFEATED:
-                soundPlayer.playSound("/yama_defeated.wav", volume);
+                playSound("yama_defeated.wav");
                 break;
 
             case DEFEATED_LOW_HP:
-                soundPlayer.playSound("/yama_defeated_low_hp.wav", volume);
+                playSound("yama_defeated_low_hp.wav");
                 break;
 
             case DEFEATED_PERFECT:
-                soundPlayer.playSound("/yama_defeated_perfect.wav", volume);
+                playSound("yama_defeated_perfect.wav");
                 break;
         }
     }
+
+    private void playSound(String resourceName)
+    {
+        float gainDb = getGainDb();
+
+        try
+        {
+            audioPlayer.play(YamaPlugin.class, "/" + resourceName, gainDb);
+        }
+        catch (Exception e)
+        {
+            log.warn("Failed to play Yama sound: {}", resourceName, e);
+        }
+    }
+
+    private float getGainDb()
+    {
+        int volPercent = config.volume(); // 0–100
+        if (volPercent < 0)
+        {
+            volPercent = 0;
+        }
+        if (volPercent > 100)
+        {
+            volPercent = 100;
+        }
+
+        // Map 0–100% to -60 dB .. 0 dB
+        if (volPercent == 0)
+        {
+            // Effectively mute
+            return -80.0f;
+        }
+
+        double volume = volPercent / 100.0; // 0.0–1.0
+        double gain = -60.0 + 60.0 * volume; // -60 dB at 0%, 0 dB at 100%
+        return (float) gain;
+    }
+
+
 
     // Turn a specific line of text into one of our YamaEvent types
     private YamaEvent classifyDialogue(String rawText)
@@ -209,13 +252,4 @@ public class YamaPlugin extends Plugin
 
         return null;
     }
-    private double getVolume()
-    {
-        int volPercent = config.volume(); // 0–100
-        // Clamp just in case
-        if (volPercent < 0) volPercent = 0;
-        if (volPercent > 100) volPercent = 100;
-        return volPercent / 100.0; // 0.0–1.0
-    }
-
 }

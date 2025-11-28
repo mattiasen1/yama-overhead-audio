@@ -7,7 +7,7 @@ public interface YamaConfig extends Config
 {
     @Range(
             min = 0,
-            max = 100
+            max = 150
     )
     @Units(Units.PERCENT)
     @ConfigItem(
