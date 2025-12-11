@@ -5,7 +5,6 @@ import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.audio.AudioPlayer;
 
-
 import net.runelite.api.NPC;
 import net.runelite.api.events.OverheadTextChanged;
 import net.runelite.client.config.ConfigManager;
@@ -15,9 +14,9 @@ import net.runelite.client.plugins.PluginDescriptor;
 
 @Slf4j
 @PluginDescriptor(
-        name = "Yama Overhead Audio",
+        name = "Yama Swedish Voiceover",
         description = "Plays sounds when Yama says specific overhead lines",
-        tags = {"yama", "boss", "audio"}
+        tags = {"yama", "boss", "audio", "swedish"}
 )
 public class YamaPlugin extends Plugin
 {
@@ -29,19 +28,6 @@ public class YamaPlugin extends Plugin
 
     @Inject
     private AudioPlayer audioPlayer;
-
-    // Types of Yama events based on overhead text
-    private enum YamaEvent
-    {
-        CHANGING_AGGRO,
-        INFERNAL_ROCKFALL,
-        SHADOW_STOMP,
-        PHASE_TRANSITION,
-        PLAYER_DIES,
-        DEFEATED,
-        DEFEATED_LOW_HP,
-        DEFEATED_PERFECT
-    }
 
     @Provides
     YamaConfig provideConfig(ConfigManager configManager)
@@ -84,46 +70,14 @@ public class YamaPlugin extends Plugin
 
         log.debug("Yama said: {}", text);
 
-        YamaEvent eventType = classifyDialogue(text);
-        if (eventType == null)
+        String soundFile = getSoundForDialogue(text);
+        if (soundFile == null)
         {
+            // Unknown/unhandled line
             return;
         }
 
-        switch (eventType)
-        {
-            case CHANGING_AGGRO:
-                playSound("yama_changing_aggro.wav");
-                break;
-
-            case INFERNAL_ROCKFALL:
-                playSound("yama_infernal_rockfall.wav");
-                break;
-
-            case SHADOW_STOMP:
-                playSound("yama_shadow_stomp.wav");
-                break;
-
-            case PHASE_TRANSITION:
-                playSound("yama_phase_transition.wav");
-                break;
-
-            case PLAYER_DIES:
-                playSound("yama_player_dies.wav");
-                break;
-
-            case DEFEATED:
-                playSound("yama_defeated.wav");
-                break;
-
-            case DEFEATED_LOW_HP:
-                playSound("yama_defeated_low_hp.wav");
-                break;
-
-            case DEFEATED_PERFECT:
-                playSound("yama_defeated_perfect.wav");
-                break;
-        }
+        playSound(soundFile);
     }
 
     private void playSound(String resourceName)
@@ -132,6 +86,7 @@ public class YamaPlugin extends Plugin
 
         try
         {
+            // Files are in src/main/resources
             audioPlayer.play(YamaPlugin.class, "/" + resourceName, gainDb);
         }
         catch (Exception e)
@@ -152,7 +107,7 @@ public class YamaPlugin extends Plugin
             volPercent = 100;
         }
 
-        // Map 0–100% to -60 dB .. 0 dB
+        // Map 0–100% to roughly -60 dB .. 0 dB
         if (volPercent == 0)
         {
             // Effectively mute
@@ -164,92 +119,115 @@ public class YamaPlugin extends Plugin
         return (float) gain;
     }
 
-
-
-    // Turn a specific line of text into one of our YamaEvent types
-    private YamaEvent classifyDialogue(String rawText)
+    /**
+     * Map the exact dialogue line to a unique sound file.
+     * We normalize case and strip trailing . ! ? so minor punctuation differences don't break it.
+     */
+    private String getSoundForDialogue(String rawText)
     {
         if (rawText == null)
         {
             return null;
         }
 
-        String txt = rawText.trim();
-        String lower = txt.toLowerCase();
+        String t = rawText.trim().toLowerCase();
 
-        if (lower.startsWith("yama:"))
+        // Strip trailing punctuation ., !, ? (only at the end)
+        while (t.endsWith(".") || t.endsWith("!") || t.endsWith("?"))
         {
-            lower = lower.substring("yama:".length()).trim();
+            t = t.substring(0, t.length() - 1).trim();
         }
 
-        // CHANGING AGGRO
-        if (lower.contains("your strike lacks bite")
-                || lower.contains("a change of pace"))
+        switch (t)
         {
-            return YamaEvent.CHANGING_AGGRO;
-        }
+            // Changing aggro
+            case "your strike lacks bite":
+                return "yama_your_strike_lacks_bite.wav";
 
-        // INFERNAL ROCKFALL
-        if (lower.contains("colabi, infernus")
-                || lower.contains("ven, estella infernus")
-                || lower.contains("colabesur infernus"))
-        {
-            return YamaEvent.INFERNAL_ROCKFALL;
-        }
+            case "a change of pace":
+                return "yama_a_change_of_pace.wav";
 
-        // SHADOW STOMP
-        if (lower.contains("ven, umbra eclipta")
-                || lower.contains("umbra, proriumpse")
-                || lower.contains("umbra apprerendehe"))
-        {
-            return YamaEvent.SHADOW_STOMP;
-        }
+            // Infernal rockfall
+            case "colabi, infernus":
+                return "yama_colabi_infernus.wav";
 
-        // PHASE TRANSITIONING
-        if (lower.equals("begone")
-                || lower.equals("you bore me.")
-                || lower.equals("you bore me")
-                || lower.equals("enough.")
-                || lower.equals("enough"))
-        {
-            return YamaEvent.PHASE_TRANSITION;
-        }
+            case "ven, estella infernus":
+                return "yama_ven_estella_infernus.wav";
 
-        // PLAYER DIES
-        if (lower.contains("lacking.")
-                || lower.contains("pathetic.")
-                || lower.contains("the price is paid")
-                || lower.contains("another day, perhaps")
-                || lower.contains("another day, another soul")
-                || lower.contains("your soul was always mine"))
-        {
-            return YamaEvent.PLAYER_DIES;
-        }
+            case "colabesur infernus":
+                return "yama_colabesur_infernus.wav";
 
-        // DEFEATING YAMA (normal)
-        if (lower.contains("fair is fair")
-                || lower.contains("your reward, as agreed")
-                || lower.contains("a satisfying warmup. collect your loot and let us continue")
-                || lower.contains("a passing performance"))
-        {
-            return YamaEvent.DEFEATED;
-        }
+            // Shadow stomp
+            case "ven, umbra eclipta":
+                return "yama_ven_umbra_eclipta.wav";
 
-        // DEFEATING YAMA – LOW HP
-        if (lower.contains("a close fight. your nerve was well held")
-                || lower.contains("a good risk, adequately rewarded")
-                || lower.contains("excellent performance. again"))
-        {
-            return YamaEvent.DEFEATED_LOW_HP;
-        }
+            case "umbra, proriumpse":
+                return "yama_umbra_proriumpse.wav";
 
-        // DEFEATING YAMA – PERFECT KILL
-        if (lower.contains("effective, if a bit cowardly")
-                || lower.contains("risk averse, are we"))
-        {
-            return YamaEvent.DEFEATED_PERFECT;
-        }
+            case "umbra apprerendehe":
+                return "yama_umbra_apprerendehe.wav";
 
-        return null;
+            // Phase transitioning
+            case "begone":
+                return "yama_begone.wav";
+
+            case "you bore me":
+                return "yama_you_bore_me.wav";
+
+            case "enough":
+                return "yama_enough.wav";
+
+            // Player dies
+            case "lacking":
+                return "yama_lacking.wav";
+
+            case "pathetic":
+                return "yama_pathetic.wav";
+
+            case "the price is paid":
+                return "yama_the_price_is_paid.wav";
+
+            case "another day, perhaps":
+                return "yama_another_day_perhaps.wav";
+
+            case "another day, another soul":
+                return "yama_another_day_another_soul.wav";
+
+            case "your soul was always mine":
+                return "yama_your_soul_was_always_mine.wav";
+
+            // Defeating Yama (normal)
+            case "fair is fair":
+                return "yama_fair_is_fair.wav";
+
+            case "your reward, as agreed":
+                return "yama_your_reward_as_agreed.wav";
+
+            case "a satisfying warmup. collect your loot and let us continue":
+                return "yama_a_satisfying_warmup.wav";
+
+            case "a passing performance":
+                return "yama_a_passing_performance.wav";
+
+            // Defeating Yama – low HP
+            case "a close fight. your nerve was well held":
+                return "yama_a_close_fight.wav";
+
+            case "a good risk, adequately rewarded":
+                return "yama_a_good_risk.wav";
+
+            case "excellent performance. again":
+                return "yama_excellent_performance_again.wav";
+
+            // Defeating Yama – perfect kill
+            case "effective, if a bit cowardly":
+                return "yama_effective_if_a_bit_cowardly.wav";
+
+            case "risk averse, are we":
+                return "yama_risk_averse_are_we.wav";
+
+            default:
+                return null;
+        }
     }
 }

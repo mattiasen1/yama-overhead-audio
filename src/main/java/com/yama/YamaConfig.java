@@ -2,7 +2,7 @@ package com.yama;
 
 import net.runelite.client.config.*;
 
-@ConfigGroup("yama")
+@ConfigGroup("yama-swedish-voiceover")
 public interface YamaConfig extends Config
 {
     @Range(
