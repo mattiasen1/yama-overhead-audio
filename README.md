@@ -9,3 +9,5 @@ Plays sound cues based on Yama’s overhead dialogue lines during the fight.
 
 This plugin plays an audio file depending on what Yama says. 
 The language is swedish and not to be taken too seriously.
+
+The audio files in this repository are recorded by myself.
